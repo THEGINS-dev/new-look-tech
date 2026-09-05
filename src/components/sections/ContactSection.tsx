@@ -194,7 +194,7 @@ export default function ContactSection() {
                 viewport={{ once: false }} transition={{ duration: 0.6, delay: 0.15, ease: EASE }}
                 className="mb-7 flex items-center gap-3"
               >
-                <Image src="/images/logo.jpg" alt="Logo NEW LOOK TECH" width={46} height={46} className="rounded-xl object-cover" />
+                <Image src="/images/Logo.jpg" alt="Logo NEW LOOK TECH" width={46} height={46} className="rounded-xl object-cover" />
                 <div>
                   <p className="font-orbitron text-sm font-black tracking-wide text-white">NEW LOOK <span className="text-spark-orange">TECH</span></p>
                   <p className="text-[9px] uppercase tracking-[0.25em] text-gray-500">Technical Services</p>
