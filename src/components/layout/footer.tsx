@@ -11,7 +11,7 @@ export default function Footer() {
         {/* COLONNE 1 : Logo (aligné à GAUCHE) + Vision */}
         <div>
           <div className="flex items-center gap-3 mb-4">
-            <Image src="/images/logo.jpg" alt="Logo NEW LOOK TECH" width={44} height={44} className="rounded-xl object-cover" />
+            <Image src="/images/Logo.jpg" alt="Logo NEW LOOK TECH" width={44} height={44} className="rounded-xl object-cover" />
             <h2 className="font-orbitron text-lg font-bold text-white leading-tight">
               NEW <span className="text-spark-orange">LOOK</span><br />TECH
             </h2>
