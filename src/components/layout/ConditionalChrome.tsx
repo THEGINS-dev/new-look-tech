@@ -1,6 +1,9 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
+import Chatbot from "@/components/chatbot/Chatbot";
 
 export default function ConditionalChrome({
   children,
@@ -9,13 +12,14 @@ export default function ConditionalChrome({
 }) {
   const pathname = usePathname();
 
-  // Sur le dashboard admin : interface épurée, sans navbar/chatbot/footer
+  // Sur le dashboard admin : interface épurée
   const isAdmin = pathname?.startsWith("/dashboard");
 
   if (isAdmin) {
     return <>{children}</>;
   }
 
+  // Sur tout le site public : nav + contenu + footer + chatbot
   return (
     <>
       <Navbar />
