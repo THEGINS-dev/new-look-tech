@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import ConditionalChrome from "@/components/layout/ConditionalChrome";
+import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 
 export const metadata: Metadata = {
   title: "NEW LOOK TECH SERVICE | L'Avenir des Services Techniques",
@@ -15,6 +16,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="antialiased">
+        <GoogleAnalytics />
         <ConditionalChrome>
           {children}
         </ConditionalChrome>
