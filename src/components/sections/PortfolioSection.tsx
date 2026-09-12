@@ -1,33 +1,64 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { HardHat } from "lucide-react";
 
+// ===== Le filet de sécurité : tes projets par défaut =====
+const PROJETS_DEFAUT = [
+  {
+    id: "1",
+    titre: "Structures Métalliques",
+    lieu: "Megastore, Lubumbashi",
+    image_url: "/images/projet-1.jpg",
+  },
+  {
+    id: "2",
+    titre: "Réseau Électrique",
+    lieu: "Avenue Kafubu, Lubumbashi",
+    image_url: "/images/projet-2.jpg",
+  },
+  {
+    id: "3",
+    titre: "Entretien Minier",
+    lieu: "Haut-Katanga, RDC",
+    image_url: "/images/projet-3.jpg",
+  },
+];
+
+type Projet = {
+  id: string;
+  titre: string;
+  lieu: string | null;
+  image_url: string;
+};
+
 export default function PortfolioSection() {
-  const projects = [
-    {
-      image: "/images/projet-1.jpg",
-      title: "Structures Métalliques",
-      location: "Megastore, Lubumbashi",
-    },
-    {
-      image: "/images/projet-2.jpg",
-      title: "construction",
-      location: "Avenue Kafubu, Lubumbashi",
-    },
-    {
-      image: "/images/projet-3.jpg",
-      title: "Autre realisation",
-      location: "Haut-Katanga, RDC",
-    },
-  ];
+  const [projets, setProjets] = useState<Projet[]>(PROJETS_DEFAUT);
+
+  // Au chargement : on tente de lire la table Supabase
+  useEffect(() => {
+    async function loadProjets() {
+      try {
+        const res = await fetch("/api/projets");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setProjets(data);
+        }
+      } catch {
+        // En cas d'erreur réseau : on garde les projets par défaut
+      }
+    }
+    loadProjets();
+  }, []);
 
   return (
     <section id="realisations" className="py-20 sm:py-24 bg-white/[0.02]">
       <div className="max-w-7xl mx-auto px-6">
-       
-        <motion.div
+        
+        <motion.div 
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
@@ -42,15 +73,15 @@ export default function PortfolioSection() {
           </p>
         </motion.div>
 
-        {/* ===== VIDÉO DE CHANTIER (responsive) ===== */}
-        <motion.div
+        {/* ===== VIDÉO DE CHANTIER ===== */}
+        <motion.div 
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7 }}
           viewport={{ once: false, amount: 0.2 }}
           className="relative rounded-2xl overflow-hidden border border-white/10 mb-12"
         >
-          <video
+          <video 
             src="/videos/chantier.mp4"
             autoPlay
             muted
@@ -58,7 +89,6 @@ export default function PortfolioSection() {
             playsInline
             className="w-full h-[220px] sm:h-[350px] lg:h-[500px] object-cover"
           />
-         
           <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6 bg-gradient-to-t from-black/95 via-black/40 to-transparent pointer-events-none">
             <div className="flex items-center gap-2 mb-1">
               <span className="relative flex h-3 w-3">
@@ -72,21 +102,21 @@ export default function PortfolioSection() {
           </div>
         </motion.div>
 
-        {/* ===== GRILLE DE PHOTOS ===== */}
+        {/* ===== GRILLE DES PROJETS (dynamiques) ===== */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-         
-          {projects.map((project, index) => (
-            <motion.div
-              key={index}
+          
+          {projets.map((project, index) => (
+            <motion.div 
+              key={project.id}
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
               viewport={{ once: false, amount: 0.3 }}
               className="group relative rounded-2xl overflow-hidden h-64 sm:h-72 lg:h-80 border border-white/10 cursor-pointer"
             >
-              <Image
-                src={project.image}
-                alt={project.title}
+              <Image 
+                src={project.image_url}
+                alt={project.titre}
                 fill
                 className="object-cover transition-transform duration-500 group-hover:scale-110"
               />
@@ -98,8 +128,8 @@ export default function PortfolioSection() {
                   <HardHat className="w-4 h-4 text-spark-orange" />
                   <span className="text-[10px] uppercase tracking-widest text-gray-400">Projet réalisé</span>
                 </div>
-                <h4 className="font-orbitron text-white font-bold text-base sm:text-lg">{project.title}</h4>
-                <p className="text-gray-400 text-xs sm:text-sm mt-1">{project.location}</p>
+                <h4 className="font-orbitron text-white font-bold text-base sm:text-lg">{project.titre}</h4>
+                <p className="text-gray-400 text-xs sm:text-sm mt-1">{project.lieu}</p>
               </div>
             </motion.div>
           ))}
