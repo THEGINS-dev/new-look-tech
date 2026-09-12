@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Navbar from "@/components/layout/Navbar";
-import Footer from "@/components/layout/Footer";
-import Chatbot from "@/components/chatbot/Chatbot";
 import ConditionalChrome from "@/components/layout/ConditionalChrome";
 
 export const metadata: Metadata = {
@@ -19,10 +16,7 @@ export default function RootLayout({
     <html lang="fr">
       <body className="antialiased">
         <ConditionalChrome>
-          <Navbar />
           {children}
-          <Footer />
-          <Chatbot />
         </ConditionalChrome>
       </body>
     </html>
