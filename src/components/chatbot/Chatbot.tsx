@@ -1,6 +1,5 @@
 // NLTS Assistant - complete Chatbot.tsx
-// This file contains the UI, animations, friendly conversation engine,
-// company/services/mining/commercial knowledge, context memory and conversions.
+// IA Groq branchée + cerveau manuel en fallback + conversions locales instantanées.
 
 "use client";
 
@@ -283,7 +282,11 @@ export default function Chatbot() {
     { label: "Conversions", icon: <Calculator size={14} />, text: "Je veux faire une conversion" },
   ], []);
 
-  function handleSend(forcedText?: string) {
+  /* =======================================================
+     ENVOI : IA Groq en priorité, cerveau manuel en secours,
+     conversions locales instantanées.
+  ======================================================= */
+  async function handleSend(forcedText?: string) {
     const text = forcedText ?? inputText;
     if (!text.trim() || isTyping) return;
 
@@ -297,22 +300,65 @@ export default function Chatbot() {
     setInputText("");
     setIsTyping(true);
 
-    const response = generateResponse(text, context);
-
+    // 1. Le cerveau manuel calcule d'abord la réponse de secours
+    //    (et met à jour la mémoire de contexte)
+    const fallback = generateResponse(text, context);
     setContext({
-      lastIntent: response.intent,
-      lastTopic: response.topic,
+      lastIntent: fallback.intent,
+      lastTopic: fallback.topic,
     });
 
-    setTimeout(() => {
+    // 2. FAST-PATH : les conversions restent locales et instantanées
+    //    (ton moteur de calcul continue de fonctionner sans IA)
+    if (fallback.intent === "conversion") {
+      setTimeout(() => {
+        setMessages((prev) => [...prev, {
+          id: Date.now() + 1,
+          text: fallback.text,
+          sender: "bot",
+          time: getTime(),
+        }]);
+        setIsTyping(false);
+      }, 500);
+      return;
+    }
+
+    // 3. On tente l'IA Groq avec l'historique récent pour le contexte
+    try {
+      const history = messages.slice(-6).map((m) => ({
+        role: m.sender === "user" ? "user" : "assistant",
+        content: m.text,
+      }));
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [...history, { role: "user", content: text }],
+        }),
+      });
+
+      const data = await response.json();
+
+      const botMessage: Message = {
+        id: Date.now() + 1,
+        text: data.reply || fallback.text,
+        sender: "bot",
+        time: getTime(),
+      };
+      setMessages((prev) => [...prev, botMessage]);
+
+    } catch (error) {
+      // 4. FALLBACK : si l'IA est indisponible, le cerveau manuel répond
       setMessages((prev) => [...prev, {
         id: Date.now() + 1,
-        text: response.text,
+        text: fallback.text,
         sender: "bot",
         time: getTime(),
       }]);
+    } finally {
       setIsTyping(false);
-    }, 650 + Math.random() * 650);
+    }
   }
 
   function resetConversation() {
@@ -385,7 +431,7 @@ export default function Chatbot() {
                     </div>
                     <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-emerald-400">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      {isTyping ? "Réflexion..." : "Assistant en ligne"}
+                      {isTyping ? "Réflexion..." : "Assistant IA en ligne"}
                     </div>
                   </div>
                 </div>
