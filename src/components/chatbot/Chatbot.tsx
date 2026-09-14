@@ -3,8 +3,10 @@
 
 "use client";
 
+// AVANT
 import { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+// APRÈS
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot, Calculator, ChevronDown, CircleHelp, Factory, HardHat,
   MessageCircle, Minus, RotateCcw, Send, Settings2, Sparkles,
@@ -30,13 +32,13 @@ type Context = {
 
 const COMPANY_KNOWLEDGE = {
   description:
-    "NEW LOOK TECH SERVICE est une entreprise technique au point moderner et specialisé avec un rendu à vos attentes .",
+    "NEW LOOK TECH SERVICE est une société technique au point moderne, spécialisée dans : la construction, la soudure et ferronnerie, l'installation électrique et industrielle, la peinture et le traitement, les plafonds et la maintenance.",
   vision:
-    "Notre ambition est de devenir une référence technique en Rdc en proposant des solutions fiables, professionnelles et adaptées aux réalités technique et industrielles.",
+    "Notre ambition : devenir une référence technique partout en RDC et en Afrique, avec des solutions fiables, professionnelles et adaptées aux réalités techniques et industrielles.",
   mission:
-    "Fournir des services techniques de qualité dans les domaines dans la construction, soudure, peinture industriels, installation électrique etc. ",
+    "Une palette de projets réalisés est consultable sur notre site, à la rubrique « Réalisations ».",
   location:
-    "Notre pôle opérationnel est situé à Lubumbashi, en République Démocratique du Congo, avec des interventions possibles dans différentes zones meme minières.",
+    "Notre pôle opérationnel est situé à Lubumbashi (zone Megastore, Av. Kafubu), RDC, avec des interventions possibles dans différentes zones, même minières. Contact d'urgence WhatsApp : +243 972 083 066.",
 };
 
 const SERVICES = [
@@ -269,17 +271,15 @@ export default function Chatbot() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
-      text: "Bonjour ! 👋\nJe suis NLTS Assistant, l'assistant de NEW LOOK TECH SERVICE.\n\nComment puis-je vous aider aujourd'hui ?",
+      text: "Bonjour ! 👋\nJe suis NLTS Assistant, une IA de NEW LOOK TECH SERVICE.\n\nComment puis-je vous aider aujourd'hui ?",
       sender: "bot",
       time: getTime(),
     },
   ]);
 
-  const quickReplies = useMemo(() => [
+    const quickReplies = useMemo(() => [
     { label: "Nos services", icon: <Wrench size={14} />, text: "Quels sont vos services ?" },
-    { label: "Secteur minier", icon: <HardHat size={14} />, text: "Que faites-vous dans le secteur minier ?" },
     { label: "Demander un devis", icon: <Factory size={14} />, text: "Je souhaite demander un devis" },
-    { label: "Conversions", icon: <Calculator size={14} />, text: "Je veux faire une conversion" },
   ], []);
 
   /* =======================================================
@@ -464,7 +464,7 @@ export default function Chatbot() {
               </motion.div>
             ) : (
               <>
-                <div className="relative flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-4 overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,.12)_transparent]">
+                <div className="relative flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-4 overscroll-contain ...
                   {messages.map((message) => (
                     <motion.div
                       key={message.id}
