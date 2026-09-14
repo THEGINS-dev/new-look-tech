@@ -212,8 +212,8 @@ export default function ContactSection() {
                 <ContactInfo
                   icon={<MessageCircle className="h-5 w-5" />}
                   title="WhatsApp Direct"
-                  text="+243 993 263 896"
-                  href="https://wa.me/243993263896?text=Bonjour%20NEW%20LOOK%20TECH%2C%20je%20souhaite%20un%20devis."
+                  text="+243 972 083 066" 
+                  href="https://wa.me/243972083066?text=Bonjour%20NEW%20LOOK%20TECH%2C%20je%20souhaite%20un%20devis."
                   accent="cyan"
                   delay={0.2}
                 />
