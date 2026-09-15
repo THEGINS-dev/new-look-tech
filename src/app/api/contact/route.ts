@@ -47,7 +47,6 @@ async function saveToSupabase(data: {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  // Si pas configuré, on ne bloque pas l'envoi de l'email
   if (!supabaseUrl || !supabaseKey) {
     console.error("⚠️ Supabase non configuré");
     return false;
@@ -75,6 +74,142 @@ async function saveToSupabase(data: {
   } catch (error) {
     console.error("❌ Exception Supabase:", error);
     return false;
+  }
+}
+
+/* =========================================================
+   👥 CRM AUTOMATIQUE : CRÉER OU RETROUVER LE CLIENT
+   Logique : cherche par email d'abord, puis par téléphone.
+   Si introuvable → crée la fiche. Retourne l'ID du client.
+========================================================= */
+async function upsertClient(data: {
+  name: string; company: string; email: string; phone: string; service: string;
+}): Promise<string | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) return null;
+
+  try {
+    // ---- 1. Chercher un client existant par EMAIL ----
+    let searchRes = await fetch(
+      `${supabaseUrl}/rest/v1/clients?email=eq.${encodeURIComponent(data.email)}&select=id,service_prefere`,
+      {
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+      }
+    );
+    let found = await searchRes.json();
+
+    // ---- 2. Si pas trouvé par email, chercher par TÉLÉPHONE ----
+    if ((!found || found.length === 0) && data.phone) {
+      searchRes = await fetch(
+        `${supabaseUrl}/rest/v1/clients?phone=eq.${encodeURIComponent(data.phone)}&select=id,service_prefere`,
+        {
+          headers: {
+            "apikey": supabaseKey,
+            "Authorization": `Bearer ${supabaseKey}`,
+          },
+        }
+      );
+      found = await searchRes.json();
+    }
+
+    // ---- 3. CAS A : Client existant → on met à jour son historique ----
+    if (found && found.length > 0) {
+      const client = found[0];
+
+      // Si le client n'avait jamais précisé de service, on note celui-ci
+      if (!client.service_prefere && data.service) {
+        await fetch(`${supabaseUrl}/rest/v1/clients?id=eq.${client.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": supabaseKey,
+            "Authorization": `Bearer ${supabaseKey}`,
+            "Prefer": "return=minimal",
+          },
+          body: JSON.stringify({ service_prefere: data.service }),
+        });
+      }
+
+      console.log("👤 Client existant retrouvé:", client.id);
+      return client.id;
+    }
+
+    // ---- 4. CAS B : Nouveau client → on crée la fiche ----
+    const createRes = await fetch(`${supabaseUrl}/rest/v1/clients`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": supabaseKey,
+        "Authorization": `Bearer ${supabaseKey}`,
+        "Prefer": "return=representation",
+      },
+      body: JSON.stringify({
+        name: data.name,
+        company: data.company || null,
+        email: data.email,
+        phone: data.phone || null,
+        service_prefere: data.service || null,
+      }),
+    });
+
+    if (!createRes.ok) {
+      console.error("❌ Erreur création client:", await createRes.text());
+      return null;
+    }
+
+    const created = await createRes.json();
+    const newClientId = created?.[0]?.id || null;
+    console.log("🆕 Nouveau client créé:", newClientId);
+    return newClientId;
+
+  } catch (error) {
+    console.error("❌ Exception CRM:", error);
+    return null;
+  }
+}
+
+/* =========================================================
+   🔗 LIER LE DEVIS AU CLIENT (client_id)
+========================================================= */
+async function linkDemandeToClient(demandeEmail: string, clientId: string): Promise<void> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) return;
+
+  try {
+    // On retrouve la demande la plus récente de cet email (celle qu'on vient d'enregistrer)
+    const searchRes = await fetch(
+      `${supabaseUrl}/rest/v1/demandes?email=eq.${encodeURIComponent(demandeEmail)}&select=id&order=created_at.desc&limit=1`,
+      {
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": `Bearer ${supabaseKey}`,
+        },
+      }
+    );
+    const found = await searchRes.json();
+
+    if (found && found.length > 0) {
+      await fetch(`${supabaseUrl}/rest/v1/demandes?id=eq.${found[0].id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": supabaseKey,
+          "Authorization": `Bearer ${supabaseKey}`,
+          "Prefer": "return=minimal",
+        },
+        body: JSON.stringify({ client_id: clientId }),
+      });
+      console.log("🔗 Demande liée au client", found[0].id, "→", clientId);
+    }
+  } catch (error) {
+    console.error("❌ Exception liaison:", error);
   }
 }
 
@@ -132,16 +267,24 @@ export async function POST(request: Request) {
       message: cleanMessage,
     };
 
-    /* ===== 1️⃣ SAUVEGARDE DANS SUPABASE (en premier) ===== */
+    /* ===== 1️⃣ SAUVEGARDE DU DEVIS ===== */
     const saved = await saveToSupabase(devisData);
 
-    /* ===== 2️⃣ LIEN WHATSAPP ===== */
+    /* ===== 2️⃣ CRM : CRÉER OU RETROUVER LE CLIENT ===== */
+    const clientId = await upsertClient(devisData);
+
+    /* ===== 3️⃣ LIER LE DEVIS AU CLIENT ===== */
+    if (clientId) {
+      await linkDemandeToClient(cleanEmail, clientId);
+    }
+
+    /* ===== 4️⃣ LIEN WHATSAPP ===== */
     const waNumber = cleanPhone.replace(/[^0-9]/g, "");
     const waLink = waNumber
       ? `https://wa.me/${waNumber}?text=${encodeURIComponent("Bonjour " + cleanName + ", ici NEW LOOK TECH SERVICE au sujet de votre demande de devis.")}`
       : null;
 
-    /* ===== 3️⃣ EMAIL HTML ===== */
+    /* ===== 5️⃣ EMAIL HTML ===== */
     const emailHtml = `
     <div style="margin:0;padding:0;background:#0d0d0d;font-family:Arial,Helvetica,sans-serif;">
       <div style="max-width:600px;margin:0 auto;background:#111111;">
@@ -152,7 +295,10 @@ export async function POST(request: Request) {
         <div style="padding:28px 24px 8px;">
           <h2 style="color:#ff6b00;margin:0;font-size:24px;">🔥 Nouveau Devis Reçu</h2>
           <p style="color:#aaaaaa;margin:8px 0 0;font-size:14px;">Vous avez une nouvelle demande via votre site web</p>
-          ${saved ? '<p style="color:#25d366;margin:6px 0 0;font-size:12px;">✅ Enregistré dans la base de données</p>' : '<p style="color:#ff4444;margin:6px 0 0;font-size:12px;">⚠️ Non enregistré dans la base</p>'}
+          <p style="margin:6px 0 0;font-size:12px;">
+            ${saved ? '<span style="color:#25d366;">✅ Enregistré dans la base</span>' : '<span style="color:#ff4444;">⚠️ Non enregistré</span>'}
+            ${clientId ? ' • <span style="color:#00f0ff;">👤 CRM mis à jour</span>' : ' • <span style="color:#ffaa00;">⚠️ CRM non mis à jour</span>'}
+          </p>
         </div>
         <div style="padding:16px 24px;">
           <table style="width:100%;border-collapse:collapse;font-size:14px;">
