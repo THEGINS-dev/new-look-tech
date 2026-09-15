@@ -7,6 +7,7 @@ import {
   Bot, Lock, Mail, LogOut, RefreshCw, Inbox,
   HardHat, CheckCircle2, Clock3, Images, Plus, Trash2,
   ArrowUp, ArrowDown, Pencil, Save, X, TrendingUp, Eye,
+  FileText, Newspaper,
 } from "lucide-react";
 
 /* ===== Types ===== */
@@ -20,6 +21,11 @@ type Projet = {
   id: string; titre: string; lieu: string | null;
   image_url: string; published: boolean; ordre: number | null;
   created_at: string;
+};
+
+type Article = {
+  id: string; slug: string; titre: string; extrait: string | null;
+  contenu: string; published: boolean; created_at: string;
 };
 
 const STATUTS = ["nouveau", "en_cours", "gagne", "perdu"];
@@ -38,7 +44,7 @@ export default function DashboardPage() {
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
-  const [tab, setTab] = useState<"demandes" | "galerie">("demandes");
+  const [tab, setTab] = useState<"demandes" | "galerie" | "blog">("demandes");
 
   // Demandes
   const [demandes, setDemandes] = useState<Demande[]>([]);
@@ -54,7 +60,7 @@ export default function DashboardPage() {
   const [publishing, setPublishing] = useState(false);
   const [publishMsg, setPublishMsg] = useState("");
 
-  // Édition
+  // Édition projets
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitre, setEditTitre] = useState("");
   const [editLieu, setEditLieu] = useState("");
@@ -64,6 +70,20 @@ export default function DashboardPage() {
   // Stats visites
   const [visitStats, setVisitStats] = useState({ total: 0, last30: 0, last7: 0 });
   const [loadingVisits, setLoadingVisits] = useState(false);
+
+  // Blog
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loadingArticles, setLoadingArticles] = useState(false);
+  const [newArticleTitre, setNewArticleTitre] = useState("");
+  const [newArticleExtrait, setNewArticleExtrait] = useState("");
+  const [newArticleContenu, setNewArticleContenu] = useState("");
+  const [publishingArticle, setPublishingArticle] = useState(false);
+  const [articleMsg, setArticleMsg] = useState("");
+  const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
+  const [editArticleTitre, setEditArticleTitre] = useState("");
+  const [editArticleExtrait, setEditArticleExtrait] = useState("");
+  const [editArticleContenu, setEditArticleContenu] = useState("");
+  const [savingArticleEdit, setSavingArticleEdit] = useState(false);
 
   /* ===== Session ===== */
   useEffect(() => {
@@ -106,8 +126,16 @@ export default function DashboardPage() {
     setLoadingVisits(false);
   }
 
+  async function loadArticles() {
+    setLoadingArticles(true);
+    const { data, error } = await supabase
+      .from("articles").select("*").order("created_at", { ascending: false });
+    if (!error && data) setArticles(data as Article[]);
+    setLoadingArticles(false);
+  }
+
   useEffect(() => {
-    if (session) { loadDemandes(); loadProjets(); loadVisits(); }
+    if (session) { loadDemandes(); loadProjets(); loadVisits(); loadArticles(); }
   }, [session]);
 
   /* ===== Connexion ===== */
@@ -121,7 +149,7 @@ export default function DashboardPage() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    setSession(null); setDemandes([]); setProjets([]);
+    setSession(null); setDemandes([]); setProjets([]); setArticles([]);
   }
 
   /* ===== Statut demande ===== */
@@ -139,7 +167,6 @@ export default function DashboardPage() {
       return;
     }
     setPublishing(true);
-    // Le nouveau projet prend le plus petit ordre = il apparaît EN PREMIER
     const minOrdre = projets.length > 0 ? Math.min(...projets.map(p => p.ordre ?? 0)) : 0;
     const { error } = await supabase.from("projets").insert({
       titre: newTitre.trim(),
@@ -171,13 +198,11 @@ export default function DashboardPage() {
     const targetIndex = direction === "up" ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= sorted.length) return;
 
-    // Échange des ordres
     const current = sorted[index];
     const target = sorted[targetIndex];
     const currentOrdre = current.ordre ?? 0;
     const targetOrdre = target.ordre ?? 0;
 
-    // Optimiste : on met à jour l'affichage immédiatement
     setProjets((prev) =>
       prev.map((p) => {
         if (p.id === current.id) return { ...p, ordre: targetOrdre };
@@ -186,7 +211,6 @@ export default function DashboardPage() {
       })
     );
 
-    // Sauvegarde en base
     await supabase.from("projets").update({ ordre: targetOrdre }).eq("id", current.id);
     await supabase.from("projets").update({ ordre: currentOrdre }).eq("id", target.id);
   }
@@ -210,6 +234,76 @@ export default function DashboardPage() {
     setSavingEdit(false);
     setEditingId(null);
     loadProjets();
+  }
+
+  /* ===== Blog : slug automatique ===== */
+  function generateSlug(titre: string): string {
+    return titre
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .slice(0, 80);
+  }
+
+  /* ===== Publier un article ===== */
+  async function publishArticle(e: React.FormEvent) {
+    e.preventDefault();
+    setArticleMsg("");
+    if (!newArticleTitre.trim() || !newArticleContenu.trim()) {
+      setArticleMsg("⚠️ Le titre et le contenu sont obligatoires.");
+      return;
+    }
+    setPublishingArticle(true);
+    const slug = generateSlug(newArticleTitre);
+    const { error } = await supabase.from("articles").insert({
+      slug,
+      titre: newArticleTitre.trim(),
+      extrait: newArticleExtrait.trim() || null,
+      contenu: newArticleContenu.trim(),
+      published: true,
+    });
+    setPublishingArticle(false);
+    if (error) {
+      if (error.message.includes("duplicate")) {
+        setArticleMsg("❌ Un article avec un titre similaire existe déjà. Changez légèrement le titre.");
+      } else {
+        setArticleMsg("❌ Erreur : " + error.message);
+      }
+    } else {
+      setArticleMsg("✅ Article publié ! Visible sur /blog dans 1 minute. 🎉");
+      setNewArticleTitre(""); setNewArticleExtrait(""); setNewArticleContenu("");
+      loadArticles();
+    }
+  }
+
+  /* ===== Supprimer un article ===== */
+  async function deleteArticle(id: string) {
+    setArticles((prev) => prev.filter((a) => a.id !== id));
+    await supabase.from("articles").delete().eq("id", id);
+  }
+
+  /* ===== Édition d'un article ===== */
+  function startEditArticle(a: Article) {
+    setEditingArticleId(a.id);
+    setEditArticleTitre(a.titre);
+    setEditArticleExtrait(a.extrait || "");
+    setEditArticleContenu(a.contenu);
+  }
+
+  async function saveArticleEdit() {
+    if (!editingArticleId || !editArticleTitre.trim() || !editArticleContenu.trim()) return;
+    setSavingArticleEdit(true);
+    await supabase.from("articles").update({
+      titre: editArticleTitre.trim(),
+      extrait: editArticleExtrait.trim() || null,
+      contenu: editArticleContenu.trim(),
+    }).eq("id", editingArticleId);
+    setSavingArticleEdit(false);
+    setEditingArticleId(null);
+    loadArticles();
   }
 
   /* ===== Stats ===== */
@@ -290,9 +384,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => { loadDemandes(); loadProjets(); loadVisits(); }}
+            <button onClick={() => { loadDemandes(); loadProjets(); loadVisits(); loadArticles(); }}
               className="p-2.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20 transition-all" title="Rafraîchir tout">
-              <RefreshCw className={`w-4 h-4 ${loadingData || loadingProjets || loadingVisits ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${loadingData || loadingProjets || loadingVisits || loadingArticles ? "animate-spin" : ""}`} />
             </button>
             <button onClick={handleLogout}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:text-red-400 hover:border-red-400/30 transition-all text-sm">
@@ -302,7 +396,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Onglets */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap">
           <button onClick={() => setTab("demandes")}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "demandes" ? "bg-spark-orange text-white shadow-lg shadow-orange-500/20" : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"}`}>
             📥 Demandes
@@ -310,6 +404,10 @@ export default function DashboardPage() {
           <button onClick={() => setTab("galerie")}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "galerie" ? "bg-cyan-electric text-onyx shadow-lg shadow-cyan-500/20" : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"}`}>
             🖼️ Galerie
+          </button>
+          <button onClick={() => setTab("blog")}
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "blog" ? "bg-white text-onyx shadow-lg" : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"}`}>
+            📝 Blog
           </button>
         </div>
 
@@ -539,6 +637,114 @@ export default function DashboardPage() {
                         </div>
                       )}
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ============ ONGLET BLOG ============ */}
+        {tab === "blog" && (
+          <>
+            {/* Formulaire de rédaction */}
+            <div className="glass-card rounded-2xl p-6 mb-8">
+              <h2 className="font-orbitron text-lg font-bold text-white mb-1 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-cyan-electric" /> Écrire un nouvel article
+              </h2>
+              <p className="text-xs text-gray-500 mb-5">
+                Sépare les paragraphes par une ligne vide. Le lien de l'article (slug) sera généré automatiquement depuis le titre.
+              </p>
+              <form onSubmit={publishArticle} className="space-y-4 max-w-2xl">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Titre de l'article *</label>
+                  <input type="text" value={newArticleTitre} onChange={(e) => setNewArticleTitre(e.target.value)}
+                    placeholder="Ex : Comment choisir un bon soudeur à Lubumbashi"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-cyan-electric focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Extrait (résumé court)</label>
+                  <input type="text" value={newArticleExtrait} onChange={(e) => setNewArticleExtrait(e.target.value)}
+                    placeholder="Une phrase qui donne envie de lire..."
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-cyan-electric focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Contenu de l'article *</label>
+                  <textarea value={newArticleContenu} onChange={(e) => setNewArticleContenu(e.target.value)}
+                    rows={12}
+                    placeholder={"Écrivez ici votre article...\n\nLaissez une ligne vide entre les paragraphes."}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-cyan-electric focus:outline-none resize-y font-mono" />
+                </div>
+                {articleMsg && (
+                  <p className={`text-xs rounded-lg p-3 ${articleMsg.startsWith("✅") ? "text-green-300 bg-green-400/10 border border-green-400/20" : "text-yellow-300 bg-yellow-400/10 border border-yellow-400/20"}`}>
+                    {articleMsg}
+                  </p>
+                )}
+                <button type="submit" disabled={publishingArticle}
+                  className="bg-cyan-electric text-onyx font-bold px-6 py-3 rounded-lg hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-2 text-sm">
+                  {publishingArticle ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  {publishingArticle ? "Publication..." : "Publier l'article"}
+                </button>
+              </form>
+            </div>
+
+            {/* Liste des articles publiés */}
+            <h3 className="font-orbitron text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Newspaper className="w-4 h-4 text-spark-orange" /> Articles publiés ({articles.length})
+            </h3>
+            {loadingArticles ? (
+              <div className="flex justify-center py-12"><RefreshCw className="w-8 h-8 text-spark-orange animate-spin" /></div>
+            ) : articles.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Newspaper className="w-12 h-12 mx-auto mb-4 opacity-40" />
+                <p className="text-sm">Aucun article publié. Écrivez le premier ci-dessus !</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {articles.map((a) => (
+                  <div key={a.id} className="glass-card rounded-2xl p-4">
+                    {editingArticleId === a.id ? (
+                      <div className="space-y-2">
+                        <input type="text" value={editArticleTitre} onChange={(e) => setEditArticleTitre(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-electric" />
+                        <input type="text" value={editArticleExtrait} onChange={(e) => setEditArticleExtrait(e.target.value)}
+                          placeholder="Extrait"
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-electric" />
+                        <textarea value={editArticleContenu} onChange={(e) => setEditArticleContenu(e.target.value)}
+                          rows={10}
+                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-electric font-mono" />
+                        <div className="flex gap-2">
+                          <button onClick={saveArticleEdit} disabled={savingArticleEdit}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-xs font-bold hover:bg-green-500/20 transition-colors disabled:opacity-50">
+                            <Save className="w-3.5 h-3.5" /> {savingArticleEdit ? "Sauvegarde..." : "Sauvegarder"}
+                          </button>
+                          <button onClick={() => setEditingArticleId(null)}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 text-gray-400 text-xs font-bold hover:bg-white/10 transition-colors">
+                            <X className="w-3.5 h-3.5" /> Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-grow min-w-0">
+                          <h4 className="font-bold text-white text-sm">{a.titre}</h4>
+                          <p className="text-xs text-gray-500 mt-0.5">{a.extrait || "Pas d'extrait"}</p>
+                          <p className="text-[10px] text-gray-600 mt-1">
+                            /blog/{a.slug} — {new Date(a.created_at).toLocaleDateString("fr-FR")}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <button onClick={() => startEditArticle(a)}
+                            className="p-2 rounded-lg bg-spark-orange/10 text-spark-orange hover:bg-spark-orange/20 transition-colors" title="Modifier">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => deleteArticle(a.id)}
+                            className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors" title="Supprimer">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
