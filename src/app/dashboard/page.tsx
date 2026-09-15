@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, Lock, Mail, LogOut, RefreshCw, Inbox,
   HardHat, CheckCircle2, Clock3, Images, Plus, Trash2,
+  ArrowUp, ArrowDown, Pencil, Save, X, TrendingUp, Eye,
 } from "lucide-react";
 
 /* ===== Types ===== */
@@ -17,7 +18,8 @@ type Demande = {
 
 type Projet = {
   id: string; titre: string; lieu: string | null;
-  image_url: string; published: boolean; created_at: string;
+  image_url: string; published: boolean; ordre: number | null;
+  created_at: string;
 };
 
 const STATUTS = ["nouveau", "en_cours", "gagne", "perdu"];
@@ -52,6 +54,13 @@ export default function DashboardPage() {
   const [publishing, setPublishing] = useState(false);
   const [publishMsg, setPublishMsg] = useState("");
 
+  // Édition
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitre, setEditTitre] = useState("");
+  const [editLieu, setEditLieu] = useState("");
+  const [editImage, setEditImage] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
   /* ===== Session ===== */
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -64,7 +73,7 @@ export default function DashboardPage() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  /* ===== Chargement demandes ===== */
+  /* ===== Chargements ===== */
   async function loadDemandes() {
     setLoadingData(true);
     const { data, error } = await supabase
@@ -73,11 +82,10 @@ export default function DashboardPage() {
     setLoadingData(false);
   }
 
-  /* ===== Chargement projets ===== */
   async function loadProjets() {
     setLoadingProjets(true);
     const { data, error } = await supabase
-      .from("projets").select("*").order("created_at", { ascending: false });
+      .from("projets").select("*").order("ordre", { ascending: true }).order("created_at", { ascending: false });
     if (!error && data) setProjets(data as Projet[]);
     setLoadingProjets(false);
   }
@@ -86,7 +94,7 @@ export default function DashboardPage() {
     if (session) { loadDemandes(); loadProjets(); }
   }, [session]);
 
-  /* ===== Connexion / déconnexion ===== */
+  /* ===== Connexion ===== */
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoginError(""); setLoginLoading(true);
@@ -115,17 +123,20 @@ export default function DashboardPage() {
       return;
     }
     setPublishing(true);
+    // Le nouveau projet prend le plus petit ordre = il apparaît EN PREMIER
+    const minOrdre = projets.length > 0 ? Math.min(...projets.map(p => p.ordre ?? 0)) : 0;
     const { error } = await supabase.from("projets").insert({
       titre: newTitre.trim(),
       lieu: newLieu.trim() || null,
       image_url: newImage.trim(),
       published: true,
+      ordre: minOrdre - 1,
     });
     setPublishing(false);
     if (error) {
       setPublishMsg("❌ Erreur : " + error.message);
     } else {
-      setPublishMsg("✅ Projet publié ! Il apparaît sur le site dans 1 minute.");
+      setPublishMsg("✅ Projet publié ! Il apparaît en premier sur le site dans 1 minute.");
       setNewTitre(""); setNewLieu(""); setNewImage("");
       loadProjets();
     }
@@ -135,6 +146,54 @@ export default function DashboardPage() {
   async function deleteProjet(id: string) {
     setProjets((prev) => prev.filter((p) => p.id !== id));
     await supabase.from("projets").delete().eq("id", id);
+  }
+
+  /* ===== Réordonner un projet ===== */
+  async function moveProjet(id: string, direction: "up" | "down") {
+    const sorted = [...projets].sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0));
+    const index = sorted.findIndex((p) => p.id === id);
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= sorted.length) return;
+
+    // Échange des ordres
+    const current = sorted[index];
+    const target = sorted[targetIndex];
+    const currentOrdre = current.ordre ?? 0;
+    const targetOrdre = target.ordre ?? 0;
+
+    // Optimiste : on met à jour l'affichage immédiatement
+    setProjets((prev) =>
+      prev.map((p) => {
+        if (p.id === current.id) return { ...p, ordre: targetOrdre };
+        if (p.id === target.id) return { ...p, ordre: currentOrdre };
+        return p;
+      })
+    );
+
+    // Sauvegarde en base
+    await supabase.from("projets").update({ ordre: targetOrdre }).eq("id", current.id);
+    await supabase.from("projets").update({ ordre: currentOrdre }).eq("id", target.id);
+  }
+
+  /* ===== Édition d'un projet ===== */
+  function startEdit(p: Projet) {
+    setEditingId(p.id);
+    setEditTitre(p.titre);
+    setEditLieu(p.lieu || "");
+    setEditImage(p.image_url);
+  }
+
+  async function saveEdit() {
+    if (!editingId || !editTitre.trim() || !editImage.trim()) return;
+    setSavingEdit(true);
+    await supabase.from("projets").update({
+      titre: editTitre.trim(),
+      lieu: editLieu.trim() || null,
+      image_url: editImage.trim(),
+    }).eq("id", editingId);
+    setSavingEdit(false);
+    setEditingId(null);
+    loadProjets();
   }
 
   /* ===== Stats ===== */
@@ -316,7 +375,7 @@ export default function DashboardPage() {
                 <Plus className="w-5 h-5 text-cyan-electric" /> Publier un nouveau projet
               </h2>
               <p className="text-xs text-gray-500 mb-5">
-                Ajoute d'abord ta photo dans GitHub (dossier public/images), puis référence-la ici.
+                Ajoute d'abord ta photo dans GitHub (dossier public/images), puis référence-la ici. Le nouveau projet apparaît en premier sur le site.
               </p>
               <form onSubmit={publishProjet} className="space-y-4 max-w-xl">
                 <div>
@@ -350,9 +409,9 @@ export default function DashboardPage() {
               </form>
             </div>
 
-            {/* Liste des projets publiés */}
+            {/* Liste des projets publiés (triés par ordre) */}
             <h3 className="font-orbitron text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Images className="w-4 h-4 text-spark-orange" /> Projets publiés ({projets.length})
+              <Images className="w-4 h-4 text-spark-orange" /> Projets publiés ({projets.length}) — ordre d'affichage sur le site
             </h3>
             {loadingProjets ? (
               <div className="flex justify-center py-12"><RefreshCw className="w-8 h-8 text-spark-orange animate-spin" /></div>
@@ -362,20 +421,73 @@ export default function DashboardPage() {
                 <p className="text-sm">Aucun projet dans la base. Le site affiche les projets par défaut.</p>
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {projets.map((p) => (
-                  <div key={p.id} className="glass-card rounded-2xl overflow-hidden">
-                    <div className="relative h-40 bg-black/40">
-                      <img src={p.image_url} alt={p.titre} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="p-4">
-                      <h4 className="font-bold text-white text-sm">{p.titre}</h4>
-                      <p className="text-xs text-gray-500 mt-0.5">{p.lieu || "Lieu non précisé"}</p>
-                      <p className="text-[10px] text-gray-600 mt-1">{p.image_url}</p>
-                      <button onClick={() => deleteProjet(p.id)}
-                        className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" /> Supprimer
-                      </button>
+              <div className="space-y-3">
+                {projets.map((p, index) => (
+                  <div key={p.id} className="glass-card rounded-2xl p-4">
+                    <div className="flex flex-wrap items-start gap-4">
+                      {/* Miniature */}
+                      <div className="relative w-24 h-16 rounded-lg overflow-hidden bg-black/40 shrink-0">
+                        <img src={p.image_url} alt={p.titre} className="w-full h-full object-cover" />
+                      </div>
+
+                      {/* Infos ou formulaire d'édition */}
+                      {editingId === p.id ? (
+                        <div className="flex-grow space-y-2 min-w-[200px]">
+                          <input type="text" value={editTitre} onChange={(e) => setEditTitre(e.target.value)}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-electric" />
+                          <div className="flex flex-wrap gap-2">
+                            <input type="text" value={editLieu} onChange={(e) => setEditLieu(e.target.value)} placeholder="Lieu"
+                              className="flex-grow bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-electric" />
+                            <input type="text" value={editImage} onChange={(e) => setEditImage(e.target.value)} placeholder="/images/..."
+                              className="flex-grow bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-electric" />
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={saveEdit} disabled={savingEdit}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-xs font-bold hover:bg-green-500/20 transition-colors disabled:opacity-50">
+                              <Save className="w-3.5 h-3.5" /> {savingEdit ? "Sauvegarde..." : "Sauvegarder"}
+                            </button>
+                            <button onClick={() => setEditingId(null)}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 text-gray-400 text-xs font-bold hover:bg-white/10 transition-colors">
+                              <X className="w-3.5 h-3.5" /> Annuler
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex-grow min-w-[150px]">
+                          <h4 className="font-bold text-white text-sm">{p.titre}</h4>
+                          <p className="text-xs text-gray-500 mt-0.5">{p.lieu || "Lieu non précisé"}</p>
+                          <p className="text-[10px] text-gray-600 mt-1">{p.image_url}</p>
+                        </div>
+                      )}
+
+                      {/* Actions : flèches + édition + suppression */}
+                      {editingId !== p.id && (
+                        <div className="flex flex-col items-center gap-1 shrink-0">
+                          <button onClick={() => moveProjet(p.id, "up")} disabled={index === 0}
+                            className="p-1.5 rounded-lg bg-white/5 text-gray-400 hover:text-cyan-electric hover:bg-white/10 transition-all disabled:opacity-20 disabled:hover:text-gray-400"
+                            title="Monter (vers le début du portfolio)">
+                            <ArrowUp className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => moveProjet(p.id, "down")} disabled={index === projets.length - 1}
+                            className="p-1.5 rounded-lg bg-white/5 text-gray-400 hover:text-cyan-electric hover:bg-white/10 transition-all disabled:opacity-20 disabled:hover:text-gray-400"
+                            title="Descendre (vers la fin du portfolio)">
+                            <ArrowDown className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+
+                      {editingId !== p.id && (
+                        <div className="flex gap-2 shrink-0">
+                          <button onClick={() => startEdit(p)}
+                            className="p-2 rounded-lg bg-spark-orange/10 text-spark-orange hover:bg-spark-orange/20 transition-colors" title="Modifier">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => deleteProjet(p.id)}
+                            className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors" title="Supprimer">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
