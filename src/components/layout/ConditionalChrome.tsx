@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import Chatbot from "@/components/chatbot/Chatbot";
+import VisitTracker from "@/components/analytics/VisitTracker";
 
 export default function ConditionalChrome({
   children,
@@ -12,16 +13,20 @@ export default function ConditionalChrome({
 }) {
   const pathname = usePathname();
 
-  // Sur le dashboard admin : interface épurée
   const isAdmin = pathname?.startsWith("/dashboard");
 
   if (isAdmin) {
-    return <>{children}</>;
+    return (
+      <>
+        <VisitTracker />
+        {children}
+      </>
+    );
   }
 
-  // Sur tout le site public : nav + contenu + footer + chatbot
   return (
     <>
+      <VisitTracker />
       <Navbar />
       {children}
       <Footer />
