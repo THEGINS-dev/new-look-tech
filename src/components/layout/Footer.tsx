@@ -23,8 +23,6 @@ export default function Footer() {
 
         {/* COLONNE 2 : Navigation */}
         <div>
-                  {/* COLONNE 2 : Navigation */}
-        <div>
           <h3 className="font-orbitron text-sm font-bold text-white uppercase tracking-wider mb-4">Navigation</h3>
           <ul className="space-y-3">
             <li><a href="/#accueil" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Accueil</a></li>
@@ -39,12 +37,12 @@ export default function Footer() {
         <div>
           <h3 className="font-orbitron text-sm font-bold text-white uppercase tracking-wider mb-4">Services</h3>
           <ul className="space-y-3">
-            <li><a href="#services" className="text-gray-400 hover:text-cyan-electric transition-colors text-sm">Soudure & Ferronnerie</a></li>
-            <li><a href="#services" className="text-gray-400 hover:text-cyan-electric transition-colors text-sm">Construction & Génie Civil</a></li>
-            <li><a href="#services" className="text-gray-400 hover:text-cyan-electric transition-colors text-sm">Installation Électrique</a></li>
-            <li><a href="#services" className="text-gray-400 hover:text-cyan-electric transition-colors text-sm">Peinture & Traitement</a></li>
-            <li><a href="#services" className="text-gray-400 hover:text-cyan-electric transition-colors text-sm">Plafonds Modernes</a></li>
-            <li><a href="#services" className="text-gray-400 hover:text-cyan-electric transition-colors text-sm">Maintenance & Ingénierie</a></li>
+            <li><a href="/#services" className="text-gray-400 hover:text-cyan-electric transition-colors text-sm">Soudure & Ferronnerie</a></li>
+            <li><a href="/#services" className="text-gray-400 hover:text-cyan-electric transition-colors text-sm">Construction & Génie Civil</a></li>
+            <li><a href="/#services" className="text-gray-400 hover:text-cyan-electric transition-colors text-sm">Installation Électrique</a></li>
+            <li><a href="/#services" className="text-gray-400 hover:text-cyan-electric transition-colors text-sm">Peinture & Traitement</a></li>
+            <li><a href="/#services" className="text-gray-400 hover:text-cyan-electric transition-colors text-sm">Plafonds Modernes</a></li>
+            <li><a href="/#services" className="text-gray-400 hover:text-cyan-electric transition-colors text-sm">Maintenance & Ingénierie</a></li>
           </ul>
         </div>
 
@@ -74,7 +72,7 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* BARRE INFÉRIEURE — pb-[88px] = pile la hauteur du bouton chatbot, zéro gaspillage */}
+      {/* BARRE INFÉRIEURE — pb-[88px] = pile la hauteur du bouton chatbot */}
       <div className="border-t border-white/5">
         <div className="max-w-7xl mx-auto px-6 pt-6 pb-[88px] md:pb-8 flex flex-col sm:flex-row justify-between items-center gap-5">
          
