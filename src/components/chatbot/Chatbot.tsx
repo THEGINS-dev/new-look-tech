@@ -276,7 +276,17 @@ export default function Chatbot() {
     lastTopic: null,
   });
 
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: 1,
+      text: "Bonjour ! 👋\nJe suis NLTS Assistant, une IA de NEW LOOK TECH SERVICE.\n\nComment puis-je vous aider aujourd'hui ?",
+      sender: "bot",
+      time: getTime(),
+    },
+  ]);
+
   // ===== AUTO-SCROLL : la zone de messages reste toujours en bas =====
+  // (déclaré APRÈS "messages" pour éviter la référence avant initialisation)
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -287,15 +297,6 @@ export default function Chatbot() {
       });
     }
   }, [messages, isTyping]);
-
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      text: "Bonjour ! 👋\nJe suis NLTS Assistant, une IA de NEW LOOK TECH SERVICE.\n\nComment puis-je vous aider aujourd'hui ?",
-      sender: "bot",
-      time: getTime(),
-    },
-  ]);
 
   const quickReplies = useMemo(() => [
     { label: "Nos services", icon: <Wrench size={14} />, text: "Quels sont vos services ?" },
