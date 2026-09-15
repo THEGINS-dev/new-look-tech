@@ -20,6 +20,7 @@ export default function Navbar() {
           <a href="#accueil" className="hover:text-spark-orange transition-colors text-gray-300">Accueil</a>
           <a href="#services" className="hover:text-spark-orange transition-colors text-gray-300">Services</a>
           <a href="#realisations" className="hover:text-spark-orange transition-colors text-gray-300">Réalisations</a>
+          <a href="/blog" className="hover:text-spark-orange transition-colors text-gray-300">Blog</a>
           <a href="#contact" className="hover:text-spark-orange transition-colors text-gray-300">Contact</a>
         </div>
 
@@ -52,6 +53,7 @@ export default function Navbar() {
           <a href="#accueil" onClick={() => setMobileMenuOpen(false)} className="block text-gray-300 hover:text-spark-orange transition-colors py-2">Accueil</a>
           <a href="#services" onClick={() => setMobileMenuOpen(false)} className="block text-gray-300 hover:text-spark-orange transition-colors py-2">Services</a>
           <a href="#realisations" onClick={() => setMobileMenuOpen(false)} className="block text-gray-300 hover:text-spark-orange transition-colors py-2">Réalisations</a>
+          <a href="/blog" onClick={() => setMobileMenuOpen(false)} className="block text-gray-300 hover:text-spark-orange transition-colors py-2">Blog</a>
           <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="block text-gray-300 hover:text-spark-orange transition-colors py-2">Contact</a>
           <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="block bg-spark-orange px-5 py-2 rounded text-white font-bold text-sm text-center mt-4">Demander un Devis</a>
         </motion.div>
