@@ -10,13 +10,12 @@ export async function GET() {
     }
 
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/projets?published=eq.true&order=created_at.desc`,
+      `${supabaseUrl}/rest/v1/projets?published=eq.true&order=ordre.asc,created_at.desc`,
       {
         headers: {
           "apikey": supabaseKey,
           "Authorization": `Bearer ${supabaseKey}`,
         },
-        // Cache : le site recharge les projets toutes les 60 secondes max
         next: { revalidate: 60 },
       }
     );
