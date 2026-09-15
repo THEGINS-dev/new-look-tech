@@ -23,13 +23,15 @@ export default function Footer() {
 
         {/* COLONNE 2 : Navigation */}
         <div>
+                  {/* COLONNE 2 : Navigation */}
+        <div>
           <h3 className="font-orbitron text-sm font-bold text-white uppercase tracking-wider mb-4">Navigation</h3>
           <ul className="space-y-3">
-            <li><a href="#accueil" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Accueil</a></li>
-            <li><a href="#services" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Nos Expertises</a></li>
-            <li><a href="#realisations" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Réalisations</a></li>
+            <li><a href="/#accueil" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Accueil</a></li>
+            <li><a href="/#services" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Nos Expertises</a></li>
+            <li><a href="/#realisations" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Réalisations</a></li>
             <li><a href="/blog" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Blog</a></li>
-            <li><a href="#contact" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Contact & Devis</a></li>
+            <li><a href="/#contact" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Contact & Devis</a></li>
           </ul>
         </div>
 
