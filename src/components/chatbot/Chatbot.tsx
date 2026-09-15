@@ -3,10 +3,8 @@
 
 "use client";
 
-// AVANT
-import { useMemo, useState } from "react";
-// APRÈS
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot, Calculator, ChevronDown, CircleHelp, Factory, HardHat,
   MessageCircle, Minus, RotateCcw, Send, Settings2, Sparkles,
@@ -61,6 +59,16 @@ const SERVICES = [
     keywords: ["maintenance", "réparation", "reparation", "entretien", "préventive", "preventive", "curative", "machine", "équipement", "equipement"],
     response:
       "Nous pouvons intervenir sur des besoins de maintenance préventive et curative des équipements et installations .",
+  },
+  {
+    keywords: ["peinture", "peindre", "traitement", "anticorrosion", "sablage"],
+    response:
+      "Nous assurons la peinture et le traitement de vos structures et équipements pour les protéger et leur donner un rendu impeccable.",
+  },
+  {
+    keywords: ["plafond", "plafonnage", "faux plafond", "plafonds"],
+    response:
+      "Nous réalisons des plafonds modernes et soignés (plafonnage, faux plafonds) pour maisons, bureaux et espaces commerciaux.",
   },
 ];
 
@@ -175,7 +183,7 @@ function detectIntent(input: string, context: Context): Intent {
   if (includesAny(msg, COMMERCIAL_KEYWORDS)) return "commercial";
   if (includesAny(msg, MINING_KEYWORDS)) return "mining";
   if (includesAny(msg, ["service", "services", "vous faites quoi", "activité", "activites", "expertise", "savoir faire"])) return "services";
-  if (includesAny(msg, ["qui etes vous", "entreprise", "societe", "fondateur", "fondateurs", "equipe", "gins", "heritier", "vision", "mission"])) return "company";
+  if (includesAny(msg, ["qui etes vous", "entreprise", "societe", "fondateur", "fondateurs", "equipe", "vision", "mission"])) return "company";
 
   if (
     context.lastIntent === "services" &&
@@ -226,7 +234,7 @@ function generateResponse(input: string, context: Context) {
       );
       return {
         text: matched?.response ??
-          "Nos principaux domaines comprennent la soudure et la fabrication métallique, l'électricité , la construction, la maintenance. 🔧⚡🏗️",
+          "Nos principaux domaines : construction, soudure et ferronnerie, installation électrique et industrielle, peinture et traitement, plafonds, maintenance. 🔧⚡🏗️🎨",
         intent, topic: "services",
       };
     }
@@ -239,13 +247,13 @@ function generateResponse(input: string, context: Context) {
 
     case "commercial":
       return {
-        text: "Chaque projet étant différent, nous préférons établir un devis adapté au besoin réel. Décrivez votre projet, les quantités, le lieu d'intervention et les délais souhaités afin que notre équipe puisse vous orienter. hesitez pas à nous contactés viq notre formulaire qui se trouve en bas ou cliquez sur la rubrique |CONTACT|",
+        text: "Chaque projet étant différent, nous préférons établir un devis adapté au besoin réel. Décrivez votre projet, les quantités, le lieu d'intervention et les délais souhaités afin que notre équipe puisse vous orienter. N'hésitez pas à nous contacter via notre formulaire qui se trouve en bas ou cliquez sur la rubrique |CONTACT|. Urgence WhatsApp : +243 972 083 066",
         intent, topic: "devis",
       };
 
     case "contact":
       return {
-        text: `${COMPANY_KNOWLEDGE.location}\n\nPour une demande commerciale ou technique, décrivez simplement votre besoin et nous vous orienterons vers le bon interlocuteur cliquez sur la rubrique |CONTACT|.`,
+        text: `${COMPANY_KNOWLEDGE.location}\n\nPour une demande commerciale ou technique, décrivez simplement votre besoin et nous vous orienterons vers le bon interlocuteur. Cliquez sur la rubrique |CONTACT|.`,
         intent, topic: "contact",
       };
 
@@ -268,6 +276,18 @@ export default function Chatbot() {
     lastTopic: null,
   });
 
+  // ===== AUTO-SCROLL : la zone de messages reste toujours en bas =====
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTo({
+        top: scrollAreaRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [messages, isTyping]);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
@@ -277,7 +297,7 @@ export default function Chatbot() {
     },
   ]);
 
-    const quickReplies = useMemo(() => [
+  const quickReplies = useMemo(() => [
     { label: "Nos services", icon: <Wrench size={14} />, text: "Quels sont vos services ?" },
     { label: "Demander un devis", icon: <Factory size={14} />, text: "Je souhaite demander un devis" },
   ], []);
@@ -309,7 +329,6 @@ export default function Chatbot() {
     });
 
     // 2. FAST-PATH : les conversions restent locales et instantanées
-    //    (ton moteur de calcul continue de fonctionner sans IA)
     if (fallback.intent === "conversion") {
       setTimeout(() => {
         setMessages((prev) => [...prev, {
@@ -364,7 +383,7 @@ export default function Chatbot() {
   function resetConversation() {
     setMessages([{
       id: Date.now(),
-      text: "Bonjour ! 👋\nJe suis NLTS Assistant. Comment puis-je vous aider ?",
+      text: "Bonjour ! 👋\nJe suis NLTS Assistant, une IA de NEW LOOK TECH SERVICE. Comment puis-je vous aider ?",
       sender: "bot",
       time: getTime(),
     }]);
@@ -464,7 +483,7 @@ export default function Chatbot() {
               </motion.div>
             ) : (
               <>
-                <div className="relative flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-4 overscroll-contain ...
+                <div ref={scrollAreaRef} className="relative flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-4 overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,.12)_transparent]">
                   {messages.map((message) => (
                     <motion.div
                       key={message.id}
