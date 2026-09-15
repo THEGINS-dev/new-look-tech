@@ -44,7 +44,10 @@ type Chantier = {
   devise_principale: string; statut: string;
   date_debut: string | null; date_fin_prevue: string | null; date_fin_reelle: string | null;
   assigne_a: string | null; created_at: string;
-  client_name?: string;
+  client_name?: string | null;
+  client_company?: string | null;
+  total_paye_usd?: number;
+  total_paye_cdf?: number;
 };
 
 type Paiement = {
@@ -129,7 +132,7 @@ export default function DashboardPage() {
   const [loadingChantiers, setLoadingChantiers] = useState(false);
   const [chantierFilter, setChantierFilter] = useState<string>("tous");
 
-  // Création chantier (depuis demande gagnée ou manuel)
+  // Création chantier
   const [createModal, setCreateModal] = useState<{ demande?: Demande } | null>(null);
   const [chTitre, setChTitre] = useState("");
   const [chDescription, setChDescription] = useState("");
@@ -198,11 +201,15 @@ export default function DashboardPage() {
     setLoadingArticles(false);
   }
 
+  // ✅ CORRIGÉ : un seul res.json()
   async function loadClients() {
     setLoadingClients(true);
     try {
       const res = await fetch("/api/clients");
-      if (res.ok) setClients(Array.isArray(await res.json()) ? await res.json() : []);
+      if (res.ok) {
+        const data = await res.json();
+        setClients(Array.isArray(data) ? data : []);
+      }
     } catch { /* silencieux */ }
     setLoadingClients(false);
   }
@@ -216,28 +223,12 @@ export default function DashboardPage() {
     setLoadingChantiers(false);
   }
 
+  // ✅ CORRIGÉ : passe par l'API /api/paiements (plus d'appel direct Supabase)
   async function loadPaiements() {
     setLoadingPaiements(true);
     try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-      if (!supabaseUrl || !supabaseKey) return;
-      const res = await fetch(
-        `${supabaseUrl}/rest/v1/paiements?select=*,chantiers(titre)&order=date_paiement.desc`,
-        {
-          headers: {
-            "apikey": supabaseKey,
-            "Authorization": `Bearer ${supabaseKey}`,
-          },
-        }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setPaiements(data.map((p: any) => ({
-          ...p,
-          chantier_titre: p.chantiers?.titre || "Chantier supprimé",
-        })));
-      }
+      const res = await fetch("/api/paiements");
+      if (res.ok) setPaiements(await res.json());
     } catch { /* silencieux */ }
     setLoadingPaiements(false);
   }
@@ -269,7 +260,6 @@ export default function DashboardPage() {
 
   /* ===== CRÉER UN CHANTIER ===== */
   function openCreateModal(demande?: Demande) {
-    // Trouver le client lié si une demande est fournie
     let clientId = "";
     let titreSuggere = "";
     if (demande) {
@@ -342,7 +332,7 @@ export default function DashboardPage() {
     loadPaiements();
   }
 
-  /* ===== Ajouter un paiement ===== */
+  /* ===== ✅ CORRIGÉ : Ajouter un paiement via l'API ===== */
   async function addPaiement(e: React.FormEvent) {
     e.preventDefault();
     setPayMsg("");
@@ -351,29 +341,40 @@ export default function DashboardPage() {
       return;
     }
     setSavingPay(true);
-    const { error } = await supabase.from("paiements").insert({
-      chantier_id: payModal.id,
-      montant: parseFloat(payMontant),
-      devise: payDevise,
-      moyen: payMoyen,
-      note: payNote.trim() || null,
-    });
-    setSavingPay(false);
-    if (error) {
-      setPayMsg("❌ Erreur : " + error.message);
-    } else {
-      setPayMsg("");
-      setPayModal(null);
-      setPayMontant(""); setPayNote("");
-      loadPaiements();
-      loadChantiers();
+    try {
+      const res = await fetch("/api/paiements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chantier_id: payModal.id,
+          montant: parseFloat(payMontant),
+          devise: payDevise,
+          moyen: payMoyen,
+          note: payNote.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        setPayMsg("❌ Erreur lors de l'enregistrement.");
+      } else {
+        setPayModal(null);
+        setPayMontant(""); setPayNote("");
+        loadPaiements();
+        loadChantiers();
+      }
+    } catch {
+      setPayMsg("❌ Erreur de connexion.");
     }
+    setSavingPay(false);
   }
 
-  /* ===== Supprimer paiement ===== */
+  /* ===== ✅ CORRIGÉ : Supprimer paiement via l'API ===== */
   async function deletePaiement(id: string) {
     setPaiements((prev) => prev.filter((p) => p.id !== id));
-    await supabase.from("paiements").delete().eq("id", id);
+    await fetch("/api/paiements", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
     loadChantiers();
   }
 
@@ -500,14 +501,11 @@ export default function DashboardPage() {
     totalEncaisseCDF: paiements.filter(p => p.devise === "CDF").reduce((s, p) => s + p.montant, 0),
     chantiersActifs: chantiers.filter(c => c.statut === "en_cours").length,
     chantiersSoldes: chantiers.filter(c => c.statut === "solde").length,
-    // Impayés = chantiers signés/en_cours/livrés dont le budget estime > paiements reçus
     impayes: chantiers
       .filter(c => ["signe", "en_cours", "livre"].includes(c.statut))
       .map(c => {
         const budget = c.devise_principale === "CDF" ? (c.budget_estime_cdf ?? 0) : (c.budget_estime_usd ?? 0);
-        const paye = paiements
-          .filter(p => p.chantier_id === c.id && p.devise === c.devise_principale)
-          .reduce((s, p) => s + p.montant, 0);
+        const paye = c.devise_principale === "CDF" ? (c.total_paye_cdf ?? 0) : (c.total_paye_usd ?? 0);
         return { titre: c.titre, devise: c.devise_principale, reste: budget - paye };
       })
       .filter(x => x.reste > 0),
@@ -585,7 +583,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <button onClick={() => { loadDemandes(); loadProjets(); loadVisits(); loadArticles(); loadClients(); loadChantiers(); loadPaiements(); }}
               className="p-2.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20 transition-all" title="Rafraîchir tout">
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className={`w-4 h-4 ${loadingData || loadingProjets || loadingVisits || loadingArticles || loadingClients || loadingChantiers || loadingPaiements ? "animate-spin" : ""}`} />
             </button>
             <button onClick={handleLogout}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:text-red-400 hover:border-red-400/30 transition-all text-sm">
@@ -696,7 +694,6 @@ export default function DashboardPage() {
                         <a href={`https://wa.me/${d.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer"
                           className="px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-xs font-bold hover:bg-green-500/20 transition-colors">💬 WhatsApp</a>
                       )}
-                      {/* BOUTON MAGIQUE : créer chantier depuis une demande gagnée */}
                       {d.status === "gagne" && (
                         <button onClick={() => openCreateModal(d)}
                           className="px-3 py-2 rounded-lg bg-cyan-electric/15 text-cyan-electric text-xs font-bold hover:bg-cyan-electric/25 transition-colors flex items-center gap-1.5">
@@ -793,7 +790,6 @@ export default function DashboardPage() {
         {/* ============ ONGLET CHANTIERS ============ */}
         {tab === "chantiers" && (
           <>
-            {/* Bouton créer manuellement */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
               <h3 className="font-orbitron text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-spark-orange" /> Chantiers ({chantiers.length})
@@ -804,7 +800,6 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* Filtres statuts chantiers */}
             <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
               <FilterBtn label="Tous" active={chantierFilter === "tous"} onClick={() => setChantierFilter("tous")} />
               {CHANTIER_STATUTS.map((s) => (
@@ -825,9 +820,9 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 {filteredChantiers.map((c, i) => {
-                  const client = clients.find((cl) => cl.id === c.client_id);
+                  // ✅ CORRIGÉ : utilise les données enrichies de l'API
                   const budget = c.devise_principale === "CDF" ? c.budget_estime_cdf : c.budget_estime_usd;
-                  const paye = paiements.filter((p) => p.chantier_id === c.id && p.devise === c.devise_principale).reduce((s, p) => s + p.montant, 0);
+                  const paye = c.devise_principale === "CDF" ? (c.total_paye_cdf ?? 0) : (c.total_paye_usd ?? 0);
                   const reste = (budget ?? 0) - paye;
                   return (
                     <motion.div key={c.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -835,7 +830,9 @@ export default function DashboardPage() {
                       <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                         <div className="min-w-0">
                           <h3 className="font-bold text-white">{c.titre}</h3>
-                          {client && <p className="text-xs text-gray-500">👤 {client.name}{client.company ? ` — ${client.company}` : ""}</p>}
+                          {c.client_name && (
+                            <p className="text-xs text-gray-500">👤 {c.client_name}{c.client_company ? ` — ${c.client_company}` : ""}</p>
+                          )}
                         </div>
                         <span className="text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap"
                           style={{ color: CHANTIER_STYLE[c.statut]?.color, background: CHANTIER_STYLE[c.statut]?.bg }}>
@@ -846,14 +843,9 @@ export default function DashboardPage() {
                       <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-400 mb-3">
                         {c.assigne_a && <span>👷 {c.assigne_a}</span>}
                         {c.date_fin_prevue && <span>📅 Échéance : {new Date(c.date_fin_prevue).toLocaleDateString("fr-FR")}</span>}
-                        {c.devise_principale === "CDF" ? (
-                          <span>💰 Budget : {c.budget_estime_cdf?.toLocaleString("fr-FR")} CDF</span>
-                        ) : (
-                          budget ? <span>💰 Budget : {budget.toLocaleString("fr-FR")} $</span> : null
-                        )}
+                        {budget ? <span>💰 Budget : {budget.toLocaleString("fr-FR")} {c.devise_principale}</span> : null}
                       </div>
 
-                      {/* Barre de progression paiement */}
                       {budget && budget > 0 && (
                         <div className="mb-3">
                           <div className="flex justify-between text-[10px] text-gray-500 mb-1">
@@ -896,7 +888,6 @@ export default function DashboardPage() {
         {/* ============ ONGLET FINANCES ============ */}
         {tab === "finances" && (
           <>
-            {/* Cartes finances */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               <StatCard icon={<DollarSign className="w-5 h-5" />} label="Encaissé USD" value={finances.totalEncaisseUSD} color="#25d366" delay={0} />
               <StatCard icon={<Wallet className="w-5 h-5" />} label="Encaissé CDF" value={finances.totalEncaisseCDF} color="#00F0FF" delay={0.1} />
@@ -904,7 +895,6 @@ export default function DashboardPage() {
               <StatCard icon={<CheckCircle2 className="w-5 h-5" />} label="Chantiers soldés" value={finances.chantiersSoldes} color="#ffffff" delay={0.3} />
             </div>
 
-            {/* Impayés */}
             <div className="glass-card rounded-2xl p-5 mb-8">
               <h2 className="font-orbitron text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
                 <CalendarDays className="w-4 h-4 text-red-400" /> Impayés à suivre
@@ -925,7 +915,6 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Historique paiements */}
             <h3 className="font-orbitron text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
               <Wallet className="w-4 h-4 text-spark-orange" /> Historique des paiements ({paiements.length})
             </h3>
@@ -990,7 +979,7 @@ export default function DashboardPage() {
                   <p className={`text-xs rounded-lg p-3 ${publishMsg.startsWith("✅") ? "text-green-300 bg-green-400/10 border border-green-400/20" : "text-yellow-300 bg-yellow-400/10 border border-yellow-400/20"}`}>{publishMsg}</p>
                 )}
                 <button type="submit" disabled={publishing}
-                  className="bg-cyan-electric text-onyx font-bold px-6 py-3 rounded-lg hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-2 text-sm">
+                  className="bg-cyan-electric text-onyx font-bold px-6 py-3 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-2 text-sm">
                   {publishing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   {publishing ? "Publication..." : "Publier le projet"}
                 </button>
@@ -1205,8 +1194,7 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Budget estimé ({chDevise})</label>
-                    <input type="number" value={chBudgetEstime} onChange={(e) => setChBudgetEstime(e.target.value)}
-                      placeholder="0"
+                    <input type="number" value={chBudgetEstime} onChange={(e) => setChBudgetEstime(e.target.value)} placeholder="0"
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-sm text-white placeholder-gray-500 focus:border-cyan-electric focus:outline-none" />
                   </div>
                 </div>
