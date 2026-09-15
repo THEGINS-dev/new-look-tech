@@ -12,6 +12,8 @@ const services = [
   "Soudure & Ferronnerie",
   "Électricité industrielle",
   "Construction & Génie civil",
+  "Plafond moderne",
+  "Peinture & Traitement",
   "Maintenance industrielle",
   "Projet minier",
   "Autre demande",
@@ -150,7 +152,6 @@ export default function ContactSection() {
         <div className="absolute -right-[10%] top-[28%] h-[1px] w-[60%] rotate-[-18deg] bg-gradient-to-r from-transparent via-spark-orange/15 to-transparent" />
       </div>
 
-      {/* CONTENEUR RÉTRÉCI : max-w-6xl au lieu de 7xl */}
       <div className="relative mx-auto max-w-6xl px-5 sm:px-6">
        
         {/* Header */}
@@ -254,7 +255,6 @@ export default function ContactSection() {
                 <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-300">Demande de contact</span>
               </div>
 
-              {/* FORMULAIRE RÉTRÉCI : max-w-lg = largeur confortable, jamais trop large */}
               <form onSubmit={handleSubmit} className="space-y-4 max-w-lg mx-auto lg:mx-0">
                
                 {/* Champ Nom en pleine largeur pour respirer */}
