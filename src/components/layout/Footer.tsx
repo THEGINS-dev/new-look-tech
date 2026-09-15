@@ -28,6 +28,7 @@ export default function Footer() {
             <li><a href="#accueil" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Accueil</a></li>
             <li><a href="#services" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Nos Expertises</a></li>
             <li><a href="#realisations" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Réalisations</a></li>
+            <li><a href="/blog" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Blog</a></li>
             <li><a href="#contact" className="text-gray-400 hover:text-spark-orange transition-colors text-sm">Contact & Devis</a></li>
           </ul>
         </div>
