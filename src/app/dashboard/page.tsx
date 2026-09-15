@@ -7,7 +7,7 @@ import {
   Bot, Lock, Mail, LogOut, RefreshCw, Inbox,
   HardHat, CheckCircle2, Clock3, Images, Plus, Trash2,
   ArrowUp, ArrowDown, Pencil, Save, X, TrendingUp, Eye,
-  FileText, Newspaper,
+  FileText, Newspaper, Users, Phone,
 } from "lucide-react";
 
 /* ===== Types ===== */
@@ -15,6 +15,7 @@ type Demande = {
   id: string; name: string; company: string | null; email: string;
   phone: string | null; service: string | null; location: string | null;
   message: string; status: string; created_at: string;
+  client_id?: string | null;
 };
 
 type Projet = {
@@ -26,6 +27,13 @@ type Projet = {
 type Article = {
   id: string; slug: string; titre: string; extrait: string | null;
   contenu: string; published: boolean; created_at: string;
+};
+
+type Client = {
+  id: string; name: string; company: string | null; email: string;
+  phone: string | null; service_prefere: string | null;
+  first_demande_date: string; created_at: string;
+  nb_demandes: number; nb_gagnees: number; nb_en_cours: number;
 };
 
 const STATUTS = ["nouveau", "en_cours", "gagne", "perdu"];
@@ -44,7 +52,7 @@ export default function DashboardPage() {
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
-  const [tab, setTab] = useState<"demandes" | "galerie" | "blog">("demandes");
+  const [tab, setTab] = useState<"demandes" | "galerie" | "clients" | "blog">("demandes");
 
   // Demandes
   const [demandes, setDemandes] = useState<Demande[]>([]);
@@ -84,6 +92,10 @@ export default function DashboardPage() {
   const [editArticleExtrait, setEditArticleExtrait] = useState("");
   const [editArticleContenu, setEditArticleContenu] = useState("");
   const [savingArticleEdit, setSavingArticleEdit] = useState(false);
+
+  // Clients
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loadingClients, setLoadingClients] = useState(false);
 
   /* ===== Session ===== */
   useEffect(() => {
@@ -134,8 +146,20 @@ export default function DashboardPage() {
     setLoadingArticles(false);
   }
 
+  async function loadClients() {
+    setLoadingClients(true);
+    try {
+      const res = await fetch("/api/clients");
+      if (res.ok) {
+        const data = await res.json();
+        setClients(Array.isArray(data) ? data : []);
+      }
+    } catch { /* silencieux */ }
+    setLoadingClients(false);
+  }
+
   useEffect(() => {
-    if (session) { loadDemandes(); loadProjets(); loadVisits(); loadArticles(); }
+    if (session) { loadDemandes(); loadProjets(); loadVisits(); loadArticles(); loadClients(); }
   }, [session]);
 
   /* ===== Connexion ===== */
@@ -149,13 +173,15 @@ export default function DashboardPage() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    setSession(null); setDemandes([]); setProjets([]); setArticles([]);
+    setSession(null); setDemandes([]); setProjets([]); setArticles([]); setClients([]);
   }
 
   /* ===== Statut demande ===== */
   async function updateStatus(id: string, newStatus: string) {
     setDemandes((prev) => prev.map((d) => (d.id === id ? { ...d, status: newStatus } : d)));
     await supabase.from("demandes").update({ status: newStatus }).eq("id", id);
+    // Rafraîchir les stats clients (le nombre de gagnées a pu changer)
+    loadClients();
   }
 
   /* ===== Publier un projet ===== */
@@ -384,9 +410,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => { loadDemandes(); loadProjets(); loadVisits(); loadArticles(); }}
+            <button onClick={() => { loadDemandes(); loadProjets(); loadVisits(); loadArticles(); loadClients(); }}
               className="p-2.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20 transition-all" title="Rafraîchir tout">
-              <RefreshCw className={`w-4 h-4 ${loadingData || loadingProjets || loadingVisits || loadingArticles ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${loadingData || loadingProjets || loadingVisits || loadingArticles || loadingClients ? "animate-spin" : ""}`} />
             </button>
             <button onClick={handleLogout}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:text-red-400 hover:border-red-400/30 transition-all text-sm">
@@ -404,6 +430,10 @@ export default function DashboardPage() {
           <button onClick={() => setTab("galerie")}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "galerie" ? "bg-cyan-electric text-onyx shadow-lg shadow-cyan-500/20" : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"}`}>
             🖼️ Galerie
+          </button>
+          <button onClick={() => setTab("clients")}
+            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "clients" ? "bg-green-500 text-white shadow-lg shadow-green-500/20" : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"}`}>
+            👥 Clients
           </button>
           <button onClick={() => setTab("blog")}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "blog" ? "bg-white text-onyx shadow-lg" : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"}`}>
@@ -504,6 +534,109 @@ export default function DashboardPage() {
                         className="px-3 py-2 rounded-lg bg-spark-orange/10 text-spark-orange text-xs font-bold hover:bg-spark-orange/20 transition-colors">✉️ Email</a>
                       {d.phone && (
                         <a href={`https://wa.me/${d.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer"
+                          className="px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-xs font-bold hover:bg-green-500/20 transition-colors">💬 WhatsApp</a>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ============ ONGLET CLIENTS ============ */}
+        {tab === "clients" && (
+          <>
+            {/* Résumé clients */}
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              <div className="glass-card rounded-2xl p-5 text-center">
+                <Users className="w-5 h-5 text-white mx-auto mb-2" />
+                <p className="font-orbitron text-3xl font-bold text-white">{clients.length}</p>
+                <p className="text-[10px] uppercase tracking-wider text-gray-500 mt-1">Clients totaux</p>
+              </div>
+              <div className="glass-card rounded-2xl p-5 text-center">
+                <CheckCircle2 className="w-5 h-5 text-green-400 mx-auto mb-2" />
+                <p className="font-orbitron text-3xl font-bold text-green-400">
+                  {clients.filter((c) => c.nb_gagnees > 0).length}
+                </p>
+                <p className="text-[10px] uppercase tracking-wider text-gray-500 mt-1">Clients actifs (gagnés)</p>
+              </div>
+              <div className="glass-card rounded-2xl p-5 text-center">
+                <Clock3 className="w-5 h-5 text-cyan-electric mx-auto mb-2" />
+                <p className="font-orbitron text-3xl font-bold text-cyan-electric">
+                  {clients.filter((c) => c.nb_en_cours > 0).length}
+                </p>
+                <p className="text-[10px] uppercase tracking-wider text-gray-500 mt-1">En négociation</p>
+              </div>
+            </div>
+
+            {/* Liste des clients */}
+            <h3 className="font-orbitron text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Users className="w-4 h-4 text-spark-orange" />
+              Fiches clients ({clients.length}) — triés par activité
+            </h3>
+            {loadingClients ? (
+              <div className="flex justify-center py-12"><RefreshCw className="w-8 h-8 text-spark-orange animate-spin" /></div>
+            ) : clients.length === 0 ? (
+              <div className="text-center py-20 text-gray-500">
+                <Users className="w-12 h-12 mx-auto mb-4 opacity-40" />
+                <p className="text-sm mb-2">Aucun client dans la base pour l'instant.</p>
+                <p className="text-xs text-gray-600">
+                  💡 Les fiches clients se créent automatiquement quand quelqu'un remplit le formulaire de contact.
+                  Faites un test depuis le site public !
+                </p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {clients.map((c, i) => (
+                  <motion.div key={c.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }} className="glass-card rounded-2xl p-5">
+                    {/* Nom + entreprise */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-white">{c.name}</h3>
+                        {c.company && <p className="text-xs text-gray-500">{c.company}</p>}
+                      </div>
+                      {/* Badge client fidèle si 2+ demandes */}
+                      {c.nb_demandes >= 2 && (
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-spark-orange/15 text-spark-orange whitespace-nowrap">
+                          ⭐ Fidèle
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Stats du client */}
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="bg-white/5 rounded-lg p-2 text-center">
+                        <p className="font-orbitron text-lg font-bold text-white">{c.nb_demandes}</p>
+                        <p className="text-[9px] uppercase text-gray-500">Demandes</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-2 text-center">
+                        <p className="font-orbitron text-lg font-bold text-green-400">{c.nb_gagnees}</p>
+                        <p className="text-[9px] uppercase text-gray-500">Gagnées</p>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-2 text-center">
+                        <p className="font-orbitron text-lg font-bold text-cyan-electric">{c.nb_en_cours}</p>
+                        <p className="text-[9px] uppercase text-gray-500">En cours</p>
+                      </div>
+                    </div>
+
+                    {/* Infos contact */}
+                    <div className="space-y-1.5 text-sm text-gray-400 mb-4">
+                      <p className="truncate">📧 {c.email}</p>
+                      {c.phone && <p>📞 {c.phone}</p>}
+                      {c.service_prefere && <p className="text-gray-500">🛠️ Service : {c.service_prefere}</p>}
+                      <p className="text-xs text-gray-600">
+                        📅 Client depuis le {new Date(c.first_demande_date || c.created_at).toLocaleDateString("fr-FR")}
+                      </p>
+                    </div>
+
+                    {/* Actions rapides */}
+                    <div className="flex flex-wrap gap-2">
+                      <a href={`mailto:${c.email}?subject=${encodeURIComponent("NEW LOOK TECH — Suivi de votre projet")}`}
+                        className="px-3 py-2 rounded-lg bg-spark-orange/10 text-spark-orange text-xs font-bold hover:bg-spark-orange/20 transition-colors">✉️ Email</a>
+                      {c.phone && (
+                        <a href={`https://wa.me/${c.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer"
                           className="px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-xs font-bold hover:bg-green-500/20 transition-colors">💬 WhatsApp</a>
                       )}
                     </div>
