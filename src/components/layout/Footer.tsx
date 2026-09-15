@@ -71,15 +71,16 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* BARRE INFÉRIEURE — pb-24 laisse la place au bouton du chatbot */}
+      {/* BARRE INFÉRIEURE — pb-[88px] = pile la hauteur du bouton chatbot, zéro gaspillage */}
       <div className="border-t border-white/5">
-        <div className="max-w-7xl mx-auto px-6 pt-6 pb-24 md:pb-8 flex flex-col sm:flex-row justify-between items-center gap-5">
+        <div className="max-w-7xl mx-auto px-6 pt-6 pb-[88px] md:pb-8 flex flex-col sm:flex-row justify-between items-center gap-5">
          
-          <p className="text-gray-500 text-xs text-center sm:text-left order-2 sm:order-1">
+          {/* Copyright à GAUCHE */}
+          <p className="text-gray-500 text-xs text-center sm:text-left">
             © 2026 New Look Tech Service. Tous droits réservés. Conçu pour l'excellence.
           </p>
 
-          {/* Réseaux sociaux : 3 logos distincts et cliquables */}
+          {/* Logos à DROITE */}
           <div className="flex items-center space-x-6">
             {/* Facebook */}
             <a href="https://facebook.com/profile.php?id=61594125400628" target="_blank" rel="noopener noreferrer" aria-label="Facebook"
