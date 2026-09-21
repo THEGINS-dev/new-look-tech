@@ -201,7 +201,7 @@ export default function DashboardPage() {
     setLoadingArticles(false);
   }
 
-  // ✅ CORRIGÉ : un seul res.json()
+  // ✅ VERSION CORRIGÉE : un seul res.json()
   async function loadClients() {
     setLoadingClients(true);
     try {
@@ -223,7 +223,7 @@ export default function DashboardPage() {
     setLoadingChantiers(false);
   }
 
-  // ✅ CORRIGÉ : passe par l'API /api/paiements (plus d'appel direct Supabase)
+  // ✅ VERSION CORRIGÉE : passe par l'API (plus de clé secrète côté navigateur)
   async function loadPaiements() {
     setLoadingPaiements(true);
     try {
@@ -495,7 +495,7 @@ export default function DashboardPage() {
   };
   const filtered = filter === "tous" ? demandes : demandes.filter((d) => d.status === filter);
 
-  /* ===== Finances calculées ===== */
+  /* ===== Finances calculées (utilise les données enrichies de l'API) ===== */
   const finances = {
     totalEncaisseUSD: paiements.filter(p => p.devise === "USD").reduce((s, p) => s + p.montant, 0),
     totalEncaisseCDF: paiements.filter(p => p.devise === "CDF").reduce((s, p) => s + p.montant, 0),
