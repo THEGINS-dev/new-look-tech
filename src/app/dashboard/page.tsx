@@ -74,6 +74,25 @@ const CHANTIER_STYLE: Record<string, { label: string; color: string; bg: string 
   solde:        { label: "Soldé",       color: "#888888", bg: "rgba(136,136,136,0.12)" },
 };
 
+/* ===== FONCTIONS BLINDÉES : ne plantent JAMAIS ===== */
+function getDemandeStyle(status: string | undefined | null) {
+  const style = status ? STATUT_STYLE[status] : undefined;
+  return {
+    label: style?.label ?? (status || "Inconnu"),
+    color: style?.color ?? "#ffffff",
+    bg: style?.bg ?? "rgba(255,255,255,0.12)",
+  };
+}
+
+function getChantierStyle(status: string | undefined | null) {
+  const style = status ? CHANTIER_STYLE[status] : undefined;
+  return {
+    label: style?.label ?? (status || "Inconnu"),
+    color: style?.color ?? "#ffffff",
+    bg: style?.bg ?? "rgba(255,255,255,0.12)",
+  };
+}
+
 export default function DashboardPage() {
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -201,7 +220,6 @@ export default function DashboardPage() {
     setLoadingArticles(false);
   }
 
-  // ✅ VERSION CORRIGÉE : un seul res.json()
   async function loadClients() {
     setLoadingClients(true);
     try {
@@ -223,7 +241,6 @@ export default function DashboardPage() {
     setLoadingChantiers(false);
   }
 
-  // ✅ VERSION CORRIGÉE : passe par l'API (plus de clé secrète côté navigateur)
   async function loadPaiements() {
     setLoadingPaiements(true);
     try {
@@ -332,7 +349,7 @@ export default function DashboardPage() {
     loadPaiements();
   }
 
-  /* ===== ✅ CORRIGÉ : Ajouter un paiement via l'API ===== */
+  /* ===== Ajouter un paiement (via API) ===== */
   async function addPaiement(e: React.FormEvent) {
     e.preventDefault();
     setPayMsg("");
@@ -367,7 +384,7 @@ export default function DashboardPage() {
     setSavingPay(false);
   }
 
-  /* ===== ✅ CORRIGÉ : Supprimer paiement via l'API ===== */
+  /* ===== Supprimer paiement (via API) ===== */
   async function deletePaiement(id: string) {
     setPaiements((prev) => prev.filter((p) => p.id !== id));
     await fetch("/api/paiements", {
@@ -495,7 +512,7 @@ export default function DashboardPage() {
   };
   const filtered = filter === "tous" ? demandes : demandes.filter((d) => d.status === filter);
 
-  /* ===== Finances calculées (utilise les données enrichies de l'API) ===== */
+  /* ===== Finances calculées (données enrichies API) ===== */
   const finances = {
     totalEncaisseUSD: paiements.filter(p => p.devise === "USD").reduce((s, p) => s + p.montant, 0),
     totalEncaisseCDF: paiements.filter(p => p.devise === "CDF").reduce((s, p) => s + p.montant, 0),
@@ -659,7 +676,9 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {filtered.map((d, i) => (
+                {filtered.map((d, i) => {
+                  const dStyle = getDemandeStyle(d.status);
+                  return (
                   <motion.div key={d.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }} className="glass-card rounded-2xl p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
@@ -670,8 +689,8 @@ export default function DashboardPage() {
                         <p className="text-xs text-gray-500 mt-0.5">{new Date(d.created_at).toLocaleString("fr-FR")}</p>
                       </div>
                       <span className="text-xs font-bold px-3 py-1 rounded-full"
-                        style={{ color: STATUT_STYLE[d.status]?.color, background: STATUT_STYLE[d.status]?.bg }}>
-                        {STATUT_STYLE[d.status]?.label || d.status}
+                        style={{ color: dStyle.color, background: dStyle.bg }}>
+                        {dStyle.label}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-400 mb-3">
@@ -682,7 +701,7 @@ export default function DashboardPage() {
                     </div>
                     <p className="text-sm text-gray-300 bg-white/5 rounded-lg p-3 mb-4 italic">"{d.message}"</p>
                     <div className="flex flex-wrap items-center gap-2">
-                      <select value={d.status} onChange={(e) => updateStatus(d.id, e.target.value)}
+                      <select value={d.status || "nouveau"} onChange={(e) => updateStatus(d.id, e.target.value)}
                         className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-spark-orange">
                         {STATUTS.map((s) => (
                           <option key={s} value={s} className="bg-onyx">{STATUT_STYLE[s].label}</option>
@@ -702,7 +721,8 @@ export default function DashboardPage() {
                       )}
                     </div>
                   </motion.div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>
@@ -820,7 +840,7 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 {filteredChantiers.map((c, i) => {
-                  // ✅ CORRIGÉ : utilise les données enrichies de l'API
+                  const cStyle = getChantierStyle(c.statut);
                   const budget = c.devise_principale === "CDF" ? c.budget_estime_cdf : c.budget_estime_usd;
                   const paye = c.devise_principale === "CDF" ? (c.total_paye_cdf ?? 0) : (c.total_paye_usd ?? 0);
                   const reste = (budget ?? 0) - paye;
@@ -835,8 +855,8 @@ export default function DashboardPage() {
                           )}
                         </div>
                         <span className="text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap"
-                          style={{ color: CHANTIER_STYLE[c.statut]?.color, background: CHANTIER_STYLE[c.statut]?.bg }}>
-                          {CHANTIER_STYLE[c.statut]?.label || c.statut}
+                          style={{ color: cStyle.color, background: cStyle.bg }}>
+                          {cStyle.label}
                         </span>
                       </div>
 
@@ -862,13 +882,13 @@ export default function DashboardPage() {
                       )}
 
                       <div className="flex flex-wrap items-center gap-2">
-                        <select value={c.statut} onChange={(e) => updateChantierStatut(c.id, e.target.value)}
+                        <select value={c.statut || "devis_envoye"} onChange={(e) => updateChantierStatut(c.id, e.target.value)}
                           className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-spark-orange">
                           {CHANTIER_STATUTS.map((s) => (
                             <option key={s} value={s} className="bg-onyx">{CHANTIER_STYLE[s].label}</option>
                           ))}
                         </select>
-                        <button onClick={() => { setPayModal(c); setPayDevise(c.devise_principale); setPayMontant(""); setPayNote(""); }}
+                        <button onClick={() => { setPayModal(c); setPayDevise(c.devise_principale || "USD"); setPayMontant(""); setPayNote(""); }}
                           className="px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-xs font-bold hover:bg-green-500/20 transition-colors flex items-center gap-1.5">
                           <Wallet className="w-3.5 h-3.5" /> Encaisser
                         </button>
