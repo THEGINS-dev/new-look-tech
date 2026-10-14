@@ -9,6 +9,7 @@ export async function GET() {
       return NextResponse.json({ error: "Non configuré" }, { status: 500 });
     }
 
+    // 1. Tous les chantiers
     const res = await fetch(
       `${supabaseUrl}/rest/v1/chantiers?select=*&order=created_at.desc`,
       {
@@ -22,6 +23,7 @@ export async function GET() {
     if (!res.ok) return NextResponse.json([], { status: 200 });
     const chantiers = await res.json();
 
+    // 2. Les clients (pour les noms)
     const clientsRes = await fetch(
       `${supabaseUrl}/rest/v1/clients?select=id,name,company`,
       {
@@ -33,6 +35,7 @@ export async function GET() {
     );
     const clients = clientsRes.ok ? await clientsRes.json() : [];
 
+    // 3. Les paiements (pour les totaux)
     const paiementsRes = await fetch(
       `${supabaseUrl}/rest/v1/paiements?select=*`,
       {
@@ -44,6 +47,7 @@ export async function GET() {
     );
     const paiements = paiementsRes.ok ? await paiementsRes.json() : [];
 
+    // 4. Enrichir chaque chantier
     const enriched = chantiers.map((c: any) => {
       const client = clients.find((cl: any) => cl.id === c.client_id);
       const chantierPaiements = paiements.filter((p: any) => p.chantier_id === c.id);
@@ -51,8 +55,12 @@ export async function GET() {
         ...c,
         client_name: client?.name || null,
         client_company: client?.company || null,
-        total_paye_usd: chantierPaiements.filter((p: any) => p.devise === "USD").reduce((s: number, p: any) => s + p.montant, 0),
-        total_paye_cdf: chantierPaiements.filter((p: any) => p.devise === "CDF").reduce((s: number, p: any) => s + p.montant, 0),
+        total_paye_usd: chantierPaiements
+          .filter((p: any) => p.devise === "USD")
+          .reduce((s: number, p: any) => s + p.montant, 0),
+        total_paye_cdf: chantierPaiements
+          .filter((p: any) => p.devise === "CDF")
+          .reduce((s: number, p: any) => s + p.montant, 0),
       };
     });
 
