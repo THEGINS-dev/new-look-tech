@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
-/* GET : tous les paiements avec titre du chantier */
+/* GET : tous les paiements avec le titre du chantier */
 export async function GET() {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json({ error: "Non configuré" }, { status: 500 });
+      return NextResponse.json([], { status: 200 });
     }
 
     const res = await fetch(
@@ -36,7 +36,7 @@ export async function GET() {
   }
 }
 
-/* POST : ajouter un paiement */
+/* POST : enregistrer un paiement */
 export async function POST(request: Request) {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -50,7 +50,10 @@ export async function POST(request: Request) {
     const { chantier_id, montant, devise, moyen, note } = body;
 
     if (!chantier_id || !montant) {
-      return NextResponse.json({ error: "chantier_id et montant obligatoires" }, { status: 400 });
+      return NextResponse.json(
+        { error: "chantier_id et montant sont obligatoires" },
+        { status: 400 }
+      );
     }
 
     const res = await fetch(`${supabaseUrl}/rest/v1/paiements`, {
@@ -95,7 +98,9 @@ export async function DELETE(request: Request) {
     }
 
     const { id } = await request.json();
-    if (!id) return NextResponse.json({ error: "id requis" }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: "id requis" }, { status: 400 });
+    }
 
     await fetch(`${supabaseUrl}/rest/v1/paiements?id=eq.${id}`, {
       method: "DELETE",
