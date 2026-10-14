@@ -7,8 +7,8 @@ import {
   Bot, Lock, Mail, LogOut, RefreshCw, Inbox,
   HardHat, CheckCircle2, Clock3, Images, Plus, Trash2,
   ArrowUp, ArrowDown, Pencil, Save, X, TrendingUp, Eye,
-  FileText, Newspaper, Users, Phone, Building2, Wallet,
-  ArrowRight, DollarSign, CalendarDays,
+  Newspaper, Users, Phone, Building2, Wallet,
+  DollarSign, CalendarDays,
 } from "lucide-react";
 
 /* ===== Types ===== */
@@ -251,7 +251,10 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    if (session) { loadDemandes(); loadProjets(); loadVisits(); loadArticles(); loadClients(); loadChantiers(); loadPaiements(); }
+    if (session) {
+      loadDemandes(); loadProjets(); loadVisits();
+      loadArticles(); loadClients(); loadChantiers(); loadPaiements();
+    }
   }, [session]);
 
   /* ===== Connexion ===== */
@@ -265,7 +268,8 @@ export default function DashboardPage() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    setSession(null); setDemandes([]); setProjets([]); setArticles([]); setClients([]); setChantiers([]); setPaiements([]);
+    setSession(null); setDemandes([]); setProjets([]); setArticles([]);
+    setClients([]); setChantiers([]); setPaiements([]);
   }
 
   /* ===== Statut demande ===== */
@@ -284,7 +288,9 @@ export default function DashboardPage() {
         (c) => c.email.toLowerCase() === demande.email.toLowerCase()
       );
       if (client) clientId = client.id;
-      titreSuggere = demande.service ? `${demande.service} — ${demande.name}` : `Projet ${demande.name}`;
+      titreSuggere = demande.service
+        ? `${demande.service} — ${demande.name}`
+        : `Projet ${demande.name}`;
     }
     setCreateModal({ demande });
     setChTitre(titreSuggere);
@@ -521,13 +527,17 @@ export default function DashboardPage() {
     impayes: chantiers
       .filter(c => ["signe", "en_cours", "livre"].includes(c.statut))
       .map(c => {
-        const budget = c.devise_principale === "CDF" ? (c.budget_estime_cdf ?? 0) : (c.budget_estime_usd ?? 0);
-        const paye = c.devise_principale === "CDF" ? (c.total_paye_cdf ?? 0) : (c.total_paye_usd ?? 0);
+        const budget = c.devise_principale === "CDF"
+          ? (c.budget_estime_cdf ?? 0) : (c.budget_estime_usd ?? 0);
+        const paye = c.devise_principale === "CDF"
+          ? (c.total_paye_cdf ?? 0) : (c.total_paye_usd ?? 0);
         return { titre: c.titre, devise: c.devise_principale, reste: budget - paye };
       })
       .filter(x => x.reste > 0),
   };
-  const filteredChantiers = chantierFilter === "tous" ? chantiers : chantiers.filter((c) => c.statut === chantierFilter);
+  const filteredChantiers = chantierFilter === "tous"
+    ? chantiers
+    : chantiers.filter((c) => c.statut === chantierFilter);
 
   /* ===== Écran chargement ===== */
   if (loadingSession) {
@@ -679,48 +689,48 @@ export default function DashboardPage() {
                 {filtered.map((d, i) => {
                   const dStyle = getDemandeStyle(d.status);
                   return (
-                  <motion.div key={d.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }} className="glass-card rounded-2xl p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
-                      <div>
-                        <h3 className="font-bold text-white">{d.name}
-                          {d.company && <span className="text-gray-500 font-normal"> — {d.company}</span>}
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-0.5">{new Date(d.created_at).toLocaleString("fr-FR")}</p>
+                    <motion.div key={d.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }} className="glass-card rounded-2xl p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                        <div>
+                          <h3 className="font-bold text-white">{d.name}
+                            {d.company && <span className="text-gray-500 font-normal"> — {d.company}</span>}
+                          </h3>
+                          <p className="text-xs text-gray-500 mt-0.5">{new Date(d.created_at).toLocaleString("fr-FR")}</p>
+                        </div>
+                        <span className="text-xs font-bold px-3 py-1 rounded-full"
+                          style={{ color: dStyle.color, background: dStyle.bg }}>
+                          {dStyle.label}
+                        </span>
                       </div>
-                      <span className="text-xs font-bold px-3 py-1 rounded-full"
-                        style={{ color: dStyle.color, background: dStyle.bg }}>
-                        {dStyle.label}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-400 mb-3">
-                      {d.service && <span>🛠️ {d.service}</span>}
-                      {d.location && <span>📍 {d.location}</span>}
-                      {d.phone && <span>📞 {d.phone}</span>}
-                      <span>📧 {d.email}</span>
-                    </div>
-                    <p className="text-sm text-gray-300 bg-white/5 rounded-lg p-3 mb-4 italic">"{d.message}"</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <select value={d.status || "nouveau"} onChange={(e) => updateStatus(d.id, e.target.value)}
-                        className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-spark-orange">
-                        {STATUTS.map((s) => (
-                          <option key={s} value={s} className="bg-onyx">{STATUT_STYLE[s].label}</option>
-                        ))}
-                      </select>
-                      <a href={`mailto:${d.email}?subject=${encodeURIComponent("NEW LOOK TECH — Votre demande de devis")}`}
-                        className="px-3 py-2 rounded-lg bg-spark-orange/10 text-spark-orange text-xs font-bold hover:bg-spark-orange/20 transition-colors">✉️ Email</a>
-                      {d.phone && (
-                        <a href={`https://wa.me/${d.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer"
-                          className="px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-xs font-bold hover:bg-green-500/20 transition-colors">💬 WhatsApp</a>
-                      )}
-                      {d.status === "gagne" && (
-                        <button onClick={() => openCreateModal(d)}
-                          className="px-3 py-2 rounded-lg bg-cyan-electric/15 text-cyan-electric text-xs font-bold hover:bg-cyan-electric/25 transition-colors flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5" /> Créer un chantier
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
+                      <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-400 mb-3">
+                        {d.service && <span>🛠️ {d.service}</span>}
+                        {d.location && <span>📍 {d.location}</span>}
+                        {d.phone && <span>📞 {d.phone}</span>}
+                        <span>📧 {d.email}</span>
+                      </div>
+                      <p className="text-sm text-gray-300 bg-white/5 rounded-lg p-3 mb-4 italic">"{d.message}"</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select value={d.status || "nouveau"} onChange={(e) => updateStatus(d.id, e.target.value)}
+                          className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-spark-orange">
+                          {STATUTS.map((s) => (
+                            <option key={s} value={s} className="bg-onyx">{STATUT_STYLE[s].label}</option>
+                          ))}
+                        </select>
+                        <a href={`mailto:${d.email}?subject=${encodeURIComponent("NEW LOOK TECH — Votre demande de devis")}`}
+                          className="px-3 py-2 rounded-lg bg-spark-orange/10 text-spark-orange text-xs font-bold hover:bg-spark-orange/20 transition-colors">✉️ Email</a>
+                        {d.phone && (
+                          <a href={`https://wa.me/${d.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer"
+                            className="px-3 py-2 rounded-lg bg-green-500/10 text-green-400 text-xs font-bold hover:bg-green-500/20 transition-colors">💬 WhatsApp</a>
+                        )}
+                        {d.status === "gagne" && (
+                          <button onClick={() => openCreateModal(d)}
+                            className="px-3 py-2 rounded-lg bg-cyan-electric/15 text-cyan-electric text-xs font-bold hover:bg-cyan-electric/25 transition-colors flex items-center gap-1.5">
+                            <Building2 className="w-3.5 h-3.5" /> Créer un chantier
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
                   );
                 })}
               </div>
